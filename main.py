@@ -296,6 +296,10 @@ class SettingsTab(QWidget):
 class WallpaperApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        # 设置应用图标（会同时显示在窗口和任务栏）
+        app_icon = QIcon(os.path.join(ICONS_DIR, 'logo.ico'))
+        self.setWindowIcon(app_icon)
+        
         # 设置无边框窗口
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         # 设置窗口背景透明
@@ -628,8 +632,24 @@ class WallpaperApp(QMainWindow):
             }}
             QScrollArea {{
                 background: transparent;
-                border: 1px solid rgba(255, 228, 196, {opacity_value * 0.6});
-                border-radius: 10px;
+                border: none;
+            }}
+            QScrollBar:vertical {{
+                background: rgba(255, 248, 240, {opacity_value * 0.3});
+                width: 10px;
+                margin: 0px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: rgba(191, 186, 180, {opacity_value * 0.6});
+                min-height: 20px;
+                border-radius: 5px;
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                background: none;
+                height: 0px;
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
             }}
             QWidget#centralWidget {{
                 background: transparent;
@@ -906,7 +926,7 @@ class WallpaperApp(QMainWindow):
         container_layout.addWidget(github_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # 添加版权信息
-        copyright_label = QLabel("© 2024 PlanetBoy. All rights reserved.")
+        copyright_label = QLabel("© 2025 PlanetBoy. All rights reserved.")
         copyright_label.setStyleSheet("""
             QLabel {
                 color: #996655;
@@ -1238,7 +1258,11 @@ class WallpaperManageTab(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
+    
+    # 设置应用程序图标
+    app_icon = QIcon(os.path.join(ICONS_DIR, 'logo.ico'))
+    app.setWindowIcon(app_icon)
+    
     window = WallpaperApp()
     window.show()
     sys.exit(app.exec())

@@ -13,26 +13,29 @@ def find_shelldll_defview():
         print(f"找到Progman窗口: {progman}")
         # 发送0x052C消息激活桌面窗口
         win32gui.SendMessage(progman, 0x052C, 0, 0)
+        
         def enum_windows(hwnd, results):
-                    workerw = win32gui.FindWindowEx(hwnd, 0, "WorkerW", None)
-                    if workerw:
-                        print(f"找到WorkerW窗口: {workerw}")
-                        defview = win32gui.FindWindowEx(workerw, 0, "SHELLDLL_DefView", None)
-                        if defview:
-                            print("找到了DefView")
-                        results.append(workerw)
-                    return True
+            # 获取窗口类名
+            class_name = win32gui.GetClassName(hwnd)
+            if class_name == "WorkerW":
+                print(f"找到WorkerW窗口: {hwnd}")
+                defview = win32gui.FindWindowEx(hwnd, 0, "SHELLDLL_DefView", None)
+                if defview:
+                    print(f"在WorkerW {hwnd} 中找到了DefView")
+                results.append(hwnd)
+            return True
                 
         workers = []
         win32gui.EnumWindows(enum_windows, workers)
+        print(f"总共找到 {len(workers)} 个WorkerW窗口")
+        
         for worker in workers:
-                    # 获取 WorkerW 窗口位置
-                    defview = win32gui.FindWindowEx(worker, 0, "SHELLDLL_DefView", None)
-                    if defview:
-                        print("找到了DefView")
-       
+            defview = win32gui.FindWindowEx(worker, 0, "SHELLDLL_DefView", None)
+            if defview:
+                print(f"确认：在WorkerW {worker} 中找到了DefView")
+                return worker
     
-    print("未能找到SHELLDLL_DefView窗口")
+    print("未能找到包含SHELLDLL_DefView的WorkerW窗口")
     return None
 def find_hdc():
     hdc = win32gui.GetDC(None)  # 获取整个屏幕的DC
@@ -80,6 +83,6 @@ def loop_test2():
 
     time.sleep(20)
 if __name__ == "__main__":
-    #find_shelldll_defview()
+    find_shelldll_defview()
     # find_hdc()
-    loop_test2()
+    # loop_test2()

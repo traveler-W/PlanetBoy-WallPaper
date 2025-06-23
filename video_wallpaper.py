@@ -108,7 +108,7 @@ class VideoWallpaper:
                 )
                 window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)  # 透明背景
                 window.setVisible(True)
-                window.setGeometry(monitor_left, monitor_top, window_width, window_height)
+                window.setGeometry(monitor_left+3840, monitor_top, window_width, window_height)
                 # print(monitor_left, monitor_top, window_width, window_height)
                 
                 # 获取窗口句柄
@@ -127,10 +127,11 @@ class VideoWallpaper:
                 
                 # 遍历顶级窗口，找到 WorkerW
                 def enum_windows(hwnd, results):
-                    # workerw = win32gui.FindWindowEx(hwnd, 0, "WorkerW", None)
-                    # if workerw != 0:
-                    if hwnd == 398364:
-                        results.append(hwnd)
+                    class_name = win32gui.GetClassName(hwnd)
+                    if class_name == "WorkerW":
+                        defview = win32gui.FindWindowEx(hwnd, 0, "SHELLDLL_DefView", None)
+                        if defview:
+                            results.append(hwnd)
                     return True
                 
                 workers = []
@@ -213,7 +214,7 @@ class VideoWallpaper:
                     
                     # 加载视频
                     media = self.instance.media_new(video_path)
-                    media.add_option('input-repeat=999999')  # 设置无限循环
+                    media.add_option('input-repeat=999999')  # 设置无限循环，这里是一个很大的数字，设置为-1无效
                     player.set_media(media)
                     
                     
