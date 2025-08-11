@@ -5,6 +5,7 @@ import win32api
 import ctypes
 import vlc
 import cv2
+import time
 import numpy as np
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt
@@ -19,6 +20,7 @@ class VideoWallpaper:
         self.windows = {}  # 每个显示器一个窗口
         self.event_managers = {}  # 初始化事件管理器字典
         self.monitors = []  # 初始化显示器列表
+        self.is_24h = True
         
         # 缩略图缓存
         self._thumbnail_cache = {}
@@ -108,7 +110,7 @@ class VideoWallpaper:
                 )
                 window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)  # 透明背景
                 window.setVisible(True)
-                window.setGeometry(monitor_left+3840, monitor_top, window_width, window_height)
+                window.setGeometry(monitor_left+1920, monitor_top, window_width, window_height)
                 # print(monitor_left, monitor_top, window_width, window_height)
                 
                 # 获取窗口句柄
@@ -118,11 +120,12 @@ class VideoWallpaper:
                 style = win32gui.GetWindowLong(hwnd_windows, win32con.GWL_EXSTYLE)
                 style |= win32con.WS_EX_LAYERED  # 分层窗口
                 win32gui.SetWindowLong(hwnd_windows, win32con.GWL_EXSTYLE, style)
+                win32gui.SetLayeredWindowAttributes(hwnd_windows, 0, 255, win32con.LWA_ALPHA)
                 
                 # 将窗口设置为桌面壁纸
                 progman = win32gui.FindWindow("Progman", None)
                 win32gui.SendMessageTimeout(
-                    progman, 0x052C, 0, 0, win32con.SMTO_NORMAL, 1000
+                    progman, 0x052C, 0, 0, win32con.SMTO_NORMAL,100
                 )
                 
                 # 遍历顶级窗口，找到 WorkerW
@@ -139,29 +142,62 @@ class VideoWallpaper:
                 
                 # 找到当前显示器对应的 WorkerW
                 wallpaper_worker = None
+                defview = None
                 monitor_left, monitor_top, monitor_right, monitor_bottom = monitor['rect']
+                if len(workers) == 0:
+                    # 说明是新版的窗口结构(24h2)
+                    defview = win32gui.FindWindowEx(progman, 0, "SHELLDLL_DefView", None)
+                    
+                    worker = win32gui.FindWindowEx(progman, None, "WorkerW", None)
+                    if worker:
+                        wallpaper_worker = worker
+                else:
+                    # 说明是老版的窗口结构(23h2)
+                    win32gui.EnumWindows(enum_windows, workers)
+                    self.is_24h = False
+                    for worker in workers:
+                        # 获取 WorkerW 窗口位置
+                        defview = win32gui.FindWindowEx(worker, 0, "SHELLDLL_DefView", None)
+                        if defview:
+                            # print("找到了DefView")
+                            # 获取图标窗口句柄
+                            icon_window = win32gui.FindWindowEx(defview, 0, "SysListView32", None)
+                            if icon_window:
+                                # 将图标窗口移到前面
+                                win32gui.SetWindowPos(
+                                    icon_window, 
+                                    win32con.HWND_TOP,
+                                    0, 0, 0, 0,
+                                    win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW
+                                )
+                            # 获取当前显示器的壁纸 WorkerW
+                            wallpaper_worker = win32gui.FindWindowEx(None, worker, "WorkerW", None)
+                            # print("找到了WorkerW")
+                            break
                 
-                for worker in workers:
-                    # 获取 WorkerW 窗口位置
-                    defview = win32gui.FindWindowEx(worker, 0, "SHELLDLL_DefView", None)
-                    if defview:
-                        # print("找到了DefView")
-                        # 获取图标窗口句柄
-                        icon_window = win32gui.FindWindowEx(defview, 0, "SysListView32", None)
-                        if icon_window:
-                            # 将图标窗口移到前面
-                            win32gui.SetWindowPos(
-                                icon_window, 
-                                win32con.HWND_TOP,
-                                0, 0, 0, 0,
-                                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW
-                            )
-                        # 获取当前显示器的壁纸 WorkerW
-                        wallpaper_worker = win32gui.FindWindowEx(None, worker, "WorkerW", None)
-                        # print("找到了WorkerW")
-                        break
-                
-                if wallpaper_worker:
+                if wallpaper_worker and self.is_24h:
+                    # 将视频窗口设置为 WorkerW 的子窗口
+                    win32gui.SetParent(hwnd_windows, progman)
+                    # 确保视频窗口在底部
+                    win32gui.SetWindowPos(
+                        hwnd_windows,
+                        win32con.HWND_TOP,
+                        0, 0, 0, 0,
+                        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE 
+                    )
+                    win32gui.SetWindowPos(
+                        defview,
+                        win32con.HWND_TOP,
+                        0, 0, 0, 0,
+                        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE 
+                    )
+                    win32gui.SetWindowPos(
+                        wallpaper_worker,
+                        win32con.HWND_BOTTOM,
+                        0, 0, 0, 0,
+                        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE 
+                    )
+                else:
                     # 将视频窗口设置为 WorkerW 的子窗口
                     win32gui.SetParent(hwnd_windows, wallpaper_worker)
                     # 确保视频窗口在底部
@@ -205,12 +241,12 @@ class VideoWallpaper:
                         # 设置视频缩放以适应窗口
                         player.video_set_scale(0.0)  # 0.0表示自动缩放以适应窗口
                         # 确保窗口在底部
-                        win32gui.SetWindowPos(
-                            int(window.winId()),
-                            win32con.HWND_BOTTOM,
-                            0, 0, 0, 0,
-                            win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW | win32con.SWP_NOACTIVATE
-                        )
+                        # win32gui.SetWindowPos(
+                        #     int(window.winId()),
+                        #     win32con.HWND_BOTTOM,
+                        #     0, 0, 0, 0,
+                        #     win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW | win32con.SWP_NOACTIVATE
+                        # )
                     
                     # 加载视频
                     media = self.instance.media_new(video_path)
